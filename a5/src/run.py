@@ -55,10 +55,14 @@ Don't change above here; write your code below
 """
 
 if args.variant == 'vanilla':
-    pass # TODO [part c]: Make some model here
+    # TODO [part c]: Make some model here
+    model = model.GPT(mconf)
 elif args.variant == 'synthesizer':
-    pass # TODO [part g]: Make some other model here
-
+    # TODO [part g]: Make some other model here
+    # add flag of synthesizer
+    mconf.synthesizer = True
+    model = model.GPT(mconf)
+    
 # From here on, your code should be identical independent of which
 # variant (vanilla or synthesizer) has been chosen.
 
@@ -80,7 +84,18 @@ if args.function == 'pretrain':
     #     warmup_tokens=512*20
     #     final_tokens=200*len(pretrain_dataset)*block_size
     #     num_workers=4
-    raise NotImplementedError
+    # raise NotImplementedError
+
+    # get config for trainer
+    tconf = trainer.TrainerConfig(
+        max_epochs = 650, batch_size=128, learning_rate=6e-3, lr_decay=True, warmup_tokens=512 * 20,
+        final_tokens=200 * len(pretrain_dataset) * block_size, num_workers=4
+    )
+    # initialize a trainer instance and run training
+    trainer = trainer.Trainer(model, pretrain_dataset, None, tconf)
+    trainer.train()
+    # save the model
+    torch.save(model.state_dict(), args.writing_params_path)
 elif args.function == 'finetune':
     assert args.writing_params_path is not None
     assert args.finetune_corpus_path is not None
@@ -112,7 +127,26 @@ elif args.function == 'finetune':
     #         warmup_tokens=512*20
     #         final_tokens=200*len(pretrain_dataset)*block_size
     #         num_workers=4
-    raise NotImplementedError
+
+    # load model parameters if it is specified
+    if args.reading_params_path is not None:
+        model.load_state_dict(torch.load(args.reading_params_path))
+
+    # load corpus
+    finetune_text = open(args.finetune_corpus_path).read()
+    finetune_dataset = dataset.NameDataset(pretrain_dataset, finetune_text)
+    # get config for trainer
+    max_epochs = 10 if args.reading_params_path is not None else 75
+    tconf = trainer.TrainerConfig(
+        max_epochs=max_epochs, batch_size=256, learning_rate=6e-4, lr_decay=True, warmup_tokens=512 * 20,
+        final_tokens=200 * len(pretrain_dataset) * block_size, num_workers=4
+    )
+    # initialize a trainer instance and run training
+    trainer = trainer.Trainer(model, finetune_dataset, None, tconf)
+    trainer.train()
+    # save the model
+    torch.save(model.state_dict(), args.writing_params_path)
+    # raise NotImplementedError
 elif args.function == 'evaluate':
     assert args.outputs_path is not None
     assert args.reading_params_path is not None
