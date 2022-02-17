@@ -153,6 +153,8 @@ elif args.function == 'evaluate':
     assert args.reading_params_path is not None
     assert args.eval_corpus_path is not None
     model.load_state_dict(torch.load(args.reading_params_path))
+    # add device (by Aleksandr Timashov)
+    model = model.to(device)
     correct = 0
     total = 0
     with open(args.outputs_path, 'w') as fout:
