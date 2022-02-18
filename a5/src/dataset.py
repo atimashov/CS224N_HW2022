@@ -160,8 +160,8 @@ class CharCorruptionDataset(Dataset):
 
         self.block_size = block_size
         self.vocab_size = vocab_size
-        self.data = data.split('\n') # last element is empty (Aleksandr Timashov)
-        # self.data = [s for s in data.split('\n') if len(s) >= 4]
+        # self.data = data.split('\n') # last element is empty (Aleksandr Timashov)
+        self.data = [s for s in data.split('\n') if len(s) >= 4]
 
     def __len__(self):
         # returns the length of the dataset
