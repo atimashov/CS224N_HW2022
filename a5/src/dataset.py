@@ -174,71 +174,73 @@ class CharCorruptionDataset(Dataset):
         sequence, and y encodes the output sequence.
         """
 
-        # # 0. Use the idx argument of __getitem__ to retrieve the element of self.data
-        # # at the given index. We'll call the resulting data entry a document.
-        # data_point = self.data[idx]
-        # # 1. Randomly truncate the document to a length no less than 4 characters,
-        # # and no more than int(self.block_size*7/8) characters.
-        # l_truncate = random.randint(4, int(self.block_size*7/8) + 1)
-        # doc = data_point[:l_truncate]
-        #
-        # # 2. Now, break the (truncated) document into three substrings: [prefix] [masked_content] [suffix]
-        # masked_len = random.randint(1, int(len(doc) / 2) - 1) # at least 1 and at most half -1 (1/4 in average)
-        # prefix_len = random.randint(1, len(doc) - masked_len - 1) # leave at least 1 for suffix
-        # prefix = doc[:prefix_len]
-        # masked_content = doc[prefix_len: prefix_len + masked_len]
-        # suffix = doc[prefix_len + masked_len:]
-        # # 3. Rearrange these substrings into the following form: [prefix] MASK_CHAR [suffix] MASK_CHAR [masked_content] [pads]
-        # pad_len = self.block_size - l_truncate - 2
-        # masked_string = prefix + self.MASK_CHAR + suffix + self.MASK_CHAR + masked_content + self.PAD_CHAR * pad_len
-        # # 4. We now use masked_string to construct the input and output example pair. To do so,
-        # # simply take the input string to be masked_string[:-1], and the output string to be masked_string[1:].
-        # x, y = masked_string[:-1], masked_string[1:]
-        # # 5. Making use of the vocabulary that you defined, encode the resulting input and output strings as
-        # # Long tensors and return the resulting data point.
-        # x = torch.LongTensor([self.stoi[c] for c in x])
-        # y = torch.LongTensor([self.stoi[c] for c in y])
-        # return x, y
+        # 0. Use the idx argument of __getitem__ to retrieve the element of self.data
+        # at the given index. We'll call the resulting data entry a document.
+        data_point = self.data[idx]
+        # 1. Randomly truncate the document to a length no less than 4 characters,
+        # and no more than int(self.block_size*7/8) characters.
+        l_truncate = random.randint(4, self.block_size * 7/8)
+        tr_doc = data_point[:l_truncate] # it cannot be more than len(data_point) and 7/8 of block_size
+        l_truncate = len(tr_doc)
+        assert len(tr_doc) >= 4, (len(data_point), len(tr_doc), data_point, idx)
 
-        # TODO [part e]: see spec above
-        document = self.data[idx]
-        # 1. randomly truncate to [4, 7/8 * block_size]
-        doc_len = len(document)
-        truncate_len = random.randint(4, int(self.block_size * 7 / 8))
-        truncate_len = min(doc_len, truncate_len)
-        truncated_doc = document[:truncate_len]
-        # 2. break to [prefix] [masked_content] [suffix]
-        masked_len = random.randint(int(1 / 8 * truncate_len), int(3 / 8 * truncate_len))
-        assert truncate_len >= 4, (doc_len, truncate_len, masked_len, document, idx)
-        prefix_len = random.randint(1, truncate_len - masked_len - 1)
-
-        prefix = truncated_doc[:prefix_len]
-        masked_content = truncated_doc[prefix_len:prefix_len + masked_len]
-        suffix = truncated_doc[prefix_len + masked_len:]
-
-        # 3. rearrange to masked_string: [prefix] MASK_CHAR [suffix] MASK_CHAR [masked_content] [pads]
-        masked_string = prefix + self.MASK_CHAR + suffix + self.MASK_CHAR + masked_content + self.PAD_CHAR * (
-                self.block_size - truncate_len - 2)
-        assert len(masked_string) == self.block_size
-
-        # 4. input = masked_string[:-1], output = masked_string[1:]
-        x = masked_string[:-1]
-        y = masked_string[1:]
-
-        # 5. encode to Long tensors
+        # 2. Now, break the (truncated) document into three substrings: [prefix] [masked_content] [suffix]
+        masked_len = random.randint(1, int(len(tr_doc) / 2) - 1) # at least 1 and at most half -1 (1/4 in average)
+        prefix_len = random.randint(1, len(tr_doc) - masked_len - 1) # leave at least 1 for suffix
+        prefix = tr_doc[:prefix_len]
+        masked_content = tr_doc[prefix_len: prefix_len + masked_len]
+        suffix = tr_doc[prefix_len + masked_len:]
+        # 3. Rearrange these substrings into the following form: [prefix] MASK_CHAR [suffix] MASK_CHAR [masked_content] [pads]
+        pad_len = self.block_size - l_truncate - 2
+        masked_string = prefix + self.MASK_CHAR + suffix + self.MASK_CHAR + masked_content + self.PAD_CHAR * pad_len
+        # 4. We now use masked_string to construct the input and output example pair. To do so,
+        # simply take the input string to be masked_string[:-1], and the output string to be masked_string[1:].
+        x, y = masked_string[:-1], masked_string[1:]
+        # 5. Making use of the vocabulary that you defined, encode the resulting input and output strings as
+        # Long tensors and return the resulting data point.
         x = torch.LongTensor([self.stoi[c] for c in x])
         y = torch.LongTensor([self.stoi[c] for c in y])
         return x, y
 
-        inp, oup = self.data[idx].split('\t')
-        x = inp + self.MASK_CHAR + oup + self.MASK_CHAR
-        x = x + self.PAD_CHAR * (self.block_size - len(x))
-        y = self.PAD_CHAR * (len(inp) - 1) + x[len(inp):]
-
-        x = x[:-1]
-        x = torch.tensor([self.stoi[c] for c in x], dtype=torch.long)
-        y = torch.tensor([self.stoi[c] for c in y], dtype=torch.long)
-        return x, y
+        # # TODO [part e]: see spec above
+        # document = self.data[idx]
+        # # 1. randomly truncate to [4, 7/8 * block_size]
+        # doc_len = len(document)
+        # truncate_len = random.randint(4, int(self.block_size * 7 / 8))
+        # truncate_len = min(doc_len, truncate_len)
+        # truncated_doc = document[:truncate_len]
+        # # 2. break to [prefix] [masked_content] [suffix]
+        # masked_len = random.randint(int(1 / 8 * truncate_len), int(3 / 8 * truncate_len))
+        # assert truncate_len >= 4, (doc_len, truncate_len, masked_len, document, idx)
+        # prefix_len = random.randint(1, truncate_len - masked_len - 1)
+        #
+        # prefix = truncated_doc[:prefix_len]
+        # masked_content = truncated_doc[prefix_len:prefix_len + masked_len]
+        # suffix = truncated_doc[prefix_len + masked_len:]
+        #
+        # # 3. rearrange to masked_string: [prefix] MASK_CHAR [suffix] MASK_CHAR [masked_content] [pads]
+        # masked_string = prefix + self.MASK_CHAR + suffix + self.MASK_CHAR + masked_content + self.PAD_CHAR * (
+        #         self.block_size - truncate_len - 2)
+        # assert len(masked_string) == self.block_size
+        #
+        # # 4. input = masked_string[:-1], output = masked_string[1:]
+        # x = masked_string[:-1]
+        # y = masked_string[1:]
+        #
+        # # 5. encode to Long tensors
+        # x = torch.LongTensor([self.stoi[c] for c in x])
+        # y = torch.LongTensor([self.stoi[c] for c in y])
+        # return x, y
+        #
+        # inp, oup = self.data[idx].split('\t')
+        # x = inp + self.MASK_CHAR + oup + self.MASK_CHAR
+        # x = x + self.PAD_CHAR * (self.block_size - len(x))
+        # y = self.PAD_CHAR * (len(inp) - 1) + x[len(inp):]
+        #
+        # x = x[:-1]
+        # x = torch.tensor([self.stoi[c] for c in x], dtype=torch.long)
+        # y = torch.tensor([self.stoi[c] for c in y], dtype=torch.long)
+        # return x, y
 
 
 """
