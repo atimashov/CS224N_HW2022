@@ -160,8 +160,8 @@ class CharCorruptionDataset(Dataset):
 
         self.block_size = block_size
         self.vocab_size = vocab_size
-        # self.data = data.split('\n') # last element is empty (Aleksandr Timashov)
-        self.data = [s for s in data.split('\n') if len(s) >= 4]
+        self.data = data.split('\n') # last element is empty (Aleksandr Timashov)
+        # self.data = [s for s in data.split('\n') if len(s) >= 4]
 
     def __len__(self):
         # returns the length of the dataset
@@ -178,27 +178,33 @@ class CharCorruptionDataset(Dataset):
         # 0. Use the idx argument of __getitem__ to retrieve the element of self.data
         # at the given index. We'll call the resulting data entry a document.
         data_point = self.data[idx]
+
         # 1. Randomly truncate the document to a length no less than 4 characters,
         # and no more than int(self.block_size*7/8) characters.
-        # l_truncate = random.randint(4, self.block_size * 7/8)
-        l_truncate = random.randint(4, int(self.block_size * 7/8)) # added int.
-        tr_doc = data_point[:l_truncate] # it cannot be more than len(data_point) and 7/8 of block_size
-        l_truncate = len(tr_doc)
-        assert len(tr_doc) >= 4, (len(data_point), len(tr_doc), data_point, idx)
+        truncated_len = random.randint(4, int(self.block_size * 7/8)) # added int.
+        if len(data_point) < truncated_len:
+            truncated_len = len(data_point)
+        truncated_doc = data_point[:truncated_len] # it cannot be more than len(data_point) and 7/8 of block_size
+        # check if everything correct (I removed last empty document)
+        assert len(truncated_doc) >= 4, (len(data_point), len(truncated_doc), data_point, idx)
 
         # 2. Now, break the (truncated) document into three substrings: [prefix] [masked_content] [suffix]
         # masked_len = random.randint(1, int(len(tr_doc) / 2) - 1) # at least 1 and at most half -1 (1/4 in average)
-        masked_len = random.randint(int(1/8 * l_truncate), int(3/8 * truncate))
-        prefix_len = random.randint(1, len(tr_doc) - masked_len - 1) # leave at least 1 for suffix
-        prefix = tr_doc[:prefix_len]
-        masked_content = tr_doc[prefix_len: prefix_len + masked_len]
-        suffix = tr_doc[prefix_len + masked_len:]
-        # 3. Rearrange these substrings into the following form: [prefix] MASK_CHAR [suffix] MASK_CHAR [masked_content] [pads]
-        pad_len = self.block_size - l_truncate - 2
+        masked_len = random.randint(int(1/8 * truncated_len), int(3/8 * truncated_len))
+        prefix_len = random.randint(1,  truncated_len - masked_len - 1) # leave at least 1 for suffix
+        prefix = truncated_doc[:prefix_len]
+        masked_content = truncated_doc[prefix_len: prefix_len + masked_len]
+        suffix = truncated_doc[prefix_len + masked_len:]
+
+        # 3. Rearrange these substrings into the following form:
+        # [prefix] MASK_CHAR [suffix] MASK_CHAR [masked_content] [pads]
+        pad_len = self.block_size - truncated_len - 2
         masked_string = prefix + self.MASK_CHAR + suffix + self.MASK_CHAR + masked_content + self.PAD_CHAR * pad_len
+
         # 4. We now use masked_string to construct the input and output example pair. To do so,
         # simply take the input string to be masked_string[:-1], and the output string to be masked_string[1:].
         x, y = masked_string[:-1], masked_string[1:]
+
         # 5. Making use of the vocabulary that you defined, encode the resulting input and output strings as
         # Long tensors and return the resulting data point.
         x = torch.LongTensor([self.stoi[c] for c in x])
